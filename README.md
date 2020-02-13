@@ -3,19 +3,33 @@
 ## Install
 
 ```bash
-npm install
+yarn install
 ```
 
 ## Test
 
 ```bash
-npm test
+yarn test
 ```
 
 ## Create the zip
 
 ```bash
 zip -r cl-bnc-convert.zip .
+```
+
+## Docker
+
+If you wish to use Docker to run the adapter, you can build the image by running the following command:
+
+```bash
+docker build . -t bnc-convert-adapter
+```
+
+Then run it with:
+
+```bash
+docker run -p 8080:8080 -e API_KEY='YOUR_API_KEY' -it bnc-convert-adapter:latest
 ```
 
 ## Install to AWS Lambda
