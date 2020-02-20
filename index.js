@@ -39,8 +39,8 @@ const requestRetry = (options, retries) => {
 const createRequest = (input, callback) => {
   const host = 'bravenewcoin-v1.p.rapidapi.com'
   const url = 'https://' + host + '/convert'
-  const coin = input.data.coin || 'ETH'
-  const market = input.data.market || 'USD'
+  const coin = input.data.from || input.data.coin || 'ETH'
+  const market = input.data.to || input.data.market || 'USD'
   const queryObj = {
     qty: 1,
     from: coin,
