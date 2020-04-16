@@ -1,103 +1,42 @@
-const rp = require('request-promise')
-const retries = process.env.RETRIES || 3
-const delay = process.env.RETRY_DELAY || 1000
-const timeout = process.env.TIMEOUT || 1000
+const { Requester, Validator } = require('external-adapter')
 
-const requestRetry = (options, retries) => {
-  return new Promise((resolve, reject) => {
-    const retry = (options, n) => {
-      return rp(options)
-        .then(response => {
-          if (response.body.error) {
-            if (n === 1) {
-              reject(response.body)
-            } else {
-              setTimeout(() => {
-                retries--
-                retry(options, retries)
-              }, delay)
-            }
-          } else {
-            return resolve(response)
-          }
-        })
-        .catch(error => {
-          if (n === 1) {
-            reject(error.body)
-          } else {
-            setTimeout(() => {
-              retries--
-              retry(options, retries)
-            }, delay)
-          }
-        })
-    }
-    return retry(options, retries)
-  })
-}
-
-const validateInput = (input) => {
-  return new Promise((resolve, reject) => {
-    if (typeof input.id === 'undefined') {
-      input.id = '1'
-    }
-    if (typeof input.data === 'undefined') {
-      reject(new Error('No data supplied'))
-    }
-    resolve(input)
-  })
+const customParams = {
+  from: ['base', 'from', 'coin'],
+  to: ['quote', 'to', 'market']
 }
 
 const createRequest = (input, callback) => {
-  validateInput(input)
-    .then(input => {
-      const host = 'bravenewcoin-v1.p.rapidapi.com'
-      const url = 'https://' + host + '/convert'
-      const coin = input.data.base || input.data.from || input.data.coin || ''
-      const market = input.data.quote || input.data.to || input.data.market || ''
-      const queryObj = {
-        qty: 1,
-        from: coin,
-        to: market
-      }
-      const options = {
-        url: url,
-        headers: {
-          'x-rapidapi-host': host,
-          'x-rapidapi-key': process.env.API_KEY
-        },
-        qs: queryObj,
-        json: true,
-        timeout,
-        resolveWithFullResponse: true
-      }
-      requestRetry(options, retries)
-        .then(response => {
-          const result = JSON.parse(response.body.to_quantity)
-          response.body.result = result
-          callback(response.statusCode, {
-            jobRunID: input.id,
-            data: response.body,
-            result,
-            statusCode: response.statusCode
-          })
-        })
-        .catch(error => {
-          callback(500, {
-            jobRunID: input.id,
-            status: 'errored',
-            error,
-            statusCode: 500
-          })
-        })
+  let validator
+  try {
+    validator = new Validator(input, customParams)
+  } catch (error) {
+    Requester.errorCallback(input.id, error, callback)
+  }
+  const host = 'bravenewcoin-v1.p.rapidapi.com'
+  const url = 'https://' + host + '/convert'
+  const jobRunID = validator.validated.id
+  const from = validator.validated.data.from
+  const to = validator.validated.data.to
+  const qs = {
+    qty: 1,
+    from,
+    to
+  }
+  const options = {
+    url,
+    headers: {
+      'x-rapidapi-host': host,
+      'x-rapidapi-key': process.env.API_KEY
+    },
+    qs
+  }
+  Requester.requestRetry(options)
+    .then(response => {
+      response.body.result = Requester.validateResult(response.body, ['to_quantity'])
+      Requester.successCallback(jobRunID, response.statusCode, response.body, callback)
     })
     .catch(error => {
-      callback(500, {
-        jobRunID: input.id,
-        status: 'errored',
-        error: error.message,
-        statusCode: 500
-      })
+      Requester.errorCallback(jobRunID, error, callback)
     })
 }
 
