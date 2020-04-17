@@ -6,12 +6,7 @@ const customParams = {
 }
 
 const createRequest = (input, callback) => {
-  let validator
-  try {
-    validator = new Validator(input, customParams)
-  } catch (error) {
-    Requester.errorCallback(input.id, error, callback)
-  }
+  const validator = new Validator(input, customParams, callback)
   const host = 'bravenewcoin-v1.p.rapidapi.com'
   const url = 'https://' + host + '/convert'
   const jobRunID = validator.validated.id
@@ -33,10 +28,10 @@ const createRequest = (input, callback) => {
   Requester.requestRetry(options)
     .then(response => {
       response.body.result = Requester.validateResult(response.body, ['to_quantity'])
-      Requester.successCallback(jobRunID, response.statusCode, response.body, callback)
+      callback(response.statusCode, Requester.success(jobRunID, response))
     })
     .catch(error => {
-      Requester.errorCallback(jobRunID, error, callback)
+      callback(500, Requester.errored(jobRunID, error))
     })
 }
 
